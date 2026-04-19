@@ -241,8 +241,69 @@ int index_save(const Index *idx) {
 //
 // Returns 0 on success, -1 on error.
 int index_add(Index *index, const char *path) {
-    // TODO: Implement file staging
-    // (See Lab Appendix for logical steps)
-    (void)index; (void)path;
-    return -1;
+    FILE *fp = fopen(path, "rb");
+
+    if (!fp) {
+        return -1;   // File could not be opened
+    }
+
+
+    // ───────────── Step 2: Determine file size ─────────────
+    fseek(fp, 0, SEEK_END);
+
+    long size = ftell(fp);
+
+    rewind(fp);
+
+
+    // ───────────── Step 3: Allocate buffer ─────────────
+    void *data = malloc(size);
+
+    if (!data) {
+        fclose(fp);
+        return -1;
+    }
+
+
+    // ───────────── Step 4: Read file content ─────────────
+    fread(data, 1, size, fp);
+
+    fclose(fp);
+
+
+    // ───────────── Step 5: Store file as blob object ─────────────
+    ObjectID id;
+
+    if (object_write(OBJ_BLOB, data, size, &id) != 0) {
+        free(data);
+        return -1;
+    }
+
+    // Free temporary buffer
+    free(data);
+
+
+    // ───────────── Step 6: Get file metadata ─────────────
+    struct stat st;
+
+    if (stat(path, &st) != 0) {
+        return -1;
+    }
+
+
+    // ───────────── Step 7: Check if file already exists in index ─────────────
+    for (int i = 0; i < idx->count; i++) {
+
+        if (strcmp(idx->entries[i].path, path) == 0) {
+
+            // Update existing entry
+            idx->entries[i].hash = id;
+            idx->entries[i].size = st.st_size;
+            idx->entries[i].mtime_sec = st.st_mtime;
+            idx->entries[i].mode = st.st_mode;
+
+            // Save updated index to disk
+            return index_save(idx);   // 🔥 critical
+        }
+    }
 }
