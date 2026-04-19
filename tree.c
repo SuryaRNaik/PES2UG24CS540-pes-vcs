@@ -165,31 +165,75 @@ static int compare_tree_entries(const void *a, const void *b) {
 // Serialize a Tree struct into binary format for storage.
 // Caller must free(*data_out).
 // Returns 0 on success, -1 on error.
+// ───────────── Serialize Tree into Binary Format ─────────────
+// Converts Tree struct into raw binary data for object storage
 int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
-    // Estimate max size: (6 bytes mode + 1 byte space + 256 bytes name + 1 byte null + 32 bytes hash) per entry
-    size_t max_size = tree->count * 296; 
+
+    // ───────────── Step 1: Estimate maximum buffer size ─────────────
+    // Each entry ≈ 296 bytes (mode + name + null + hash)
+    size_t max_size = tree->count * 296;
+
+    // Allocate buffer to hold serialized data
     uint8_t *buffer = malloc(max_size);
-    if (!buffer) return -1;
 
-    // Create a mutable copy to sort entries (Git requirement)
+    if (!buffer) {
+        return -1;   // Memory allocation failed
+    }
+
+
+    // ───────────── Step 2: Create sorted copy of tree ─────────────
+    // Sorting ensures deterministic object hashing (important like Git)
     Tree sorted_tree = *tree;
-    qsort(sorted_tree.entries, sorted_tree.count, sizeof(TreeEntry), compare_tree_entries);
 
+    qsort(
+        sorted_tree.entries,
+        sorted_tree.count,
+        sizeof(TreeEntry),
+        compare_tree_entries
+    );
+
+
+    // ───────────── Step 3: Serialize entries ─────────────
     size_t offset = 0;
+
     for (int i = 0; i < sorted_tree.count; i++) {
+
+        // Get current entry
         const TreeEntry *entry = &sorted_tree.entries[i];
-        
-        // Write mode and name (%o writes octal correctly for Git standards)
-        int written = sprintf((char *)buffer + offset, "%o %s", entry->mode, entry->name);
-        offset += written + 1; // +1 to step over the null terminator written by sprintf
-        
-        // Write binary hash
-        memcpy(buffer + offset, entry->hash.hash, HASH_SIZE);
+
+
+        // ───────────── Write mode and name ─────────────
+        // Format: "<mode> <name>\0"
+        int written = sprintf(
+            (char *)buffer + offset,
+            "%o %s",
+            entry->mode,
+            entry->name
+        );
+
+        // Move offset past written string + null terminator
+        offset += written + 1;
+
+
+        // ───────────── Write binary hash ─────────────
+        // Append raw 32-byte hash after the name
+        memcpy(
+            buffer + offset,
+            entry->hash.hash,
+            HASH_SIZE
+        );
+
+        // Advance offset after hash
         offset += HASH_SIZE;
     }
 
+
+    // ───────────── Step 4: Output results ─────────────
     *data_out = buffer;
     *len_out = offset;
+
+
+    // ───────────── Serialization complete ─────────────
     return 0;
 }
 
