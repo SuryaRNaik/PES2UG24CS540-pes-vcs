@@ -196,11 +196,25 @@ int index_load(Index *idx) {
 //   - rename                           : atomically moving the temp file over the old index
 //
 // Returns 0 on success, -1 on error.
-int index_save(const Index *index) {
-    // TODO: Implement atomic index saving
-    // (See Lab Appendix for logical steps)
-    (void)index;
-    return -1;
+int index_save(const Index *idx) {
+
+    // Open index file in binary write mode
+    FILE *fp = fopen(".pes/index", "wb");
+
+    // Check if file opening failed
+    if (!fp) {
+        return -1;
+    }
+
+
+    // ───────────── Step 1: Write entry count ─────────────
+    fwrite(
+        &idx->count,
+        sizeof(int),
+        1,
+        fp
+    );
+
 }
 
 // Stage a file for the next commit.
