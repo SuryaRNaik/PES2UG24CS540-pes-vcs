@@ -129,6 +129,102 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 //   - object_write    : save that binary buffer to the store as OBJ_TREE
 //
 // Returns 0 on success, -1 on error.
+static int build_tree(IndexEntry *entries, int count, const char *prefix, ObjectID *id_out) {
+
+    Tree tree;
+    tree.count = 0;
+
+    int i = 0;
+
+
+    // ───────────── Step 2: Iterate through entries ─────────────
+    while (i < count) {
+
+        // Get full file path
+        const char *path = entries[i].path;
+
+        // Relative path (after removing prefix)
+        const char *rel = path;
+
+
+        // ───────────── Step 2A: Strip prefix ─────────────
+        if (prefix && strlen(prefix) > 0) {
+
+            // Skip entries not belonging to current prefix
+            if (strncmp(path, prefix, strlen(prefix)) != 0) {
+                i++;
+                continue;
+            }
+
+            // Move pointer to relative part
+            rel = path + strlen(prefix);
+        }
+
+
+        // ───────────── Step 2B: Check for subdirectory ─────────────
+        char *slash = strchr(rel, '/');
+
+
+        // ───────────── CASE 1: FILE (no slash) ─────────────
+        if (!slash) {
+
+            // Add file entry directly to tree
+            TreeEntry *entry = &tree.entries[tree.count++];
+
+            entry->mode = MODE_FILE;
+
+            // Store file name
+            strcpy(entry->name, rel);
+
+            // Store file hash (blob)
+            entry->hash = entries[i].hash;
+
+            // Move to next entry
+            i++;
+        }
+
+
+        // ───────────── CASE 2: DIRECTORY (has slash) ─────────────
+        else {
+
+            // ───────────── Extract directory name ─────────────
+            char dirname[256];
+
+            int len = slash - rel;
+
+            strncpy(dirname, rel, len);
+
+            dirname[len] = '\0';   // null terminate
+
+
+            // ───────────── Step 2C: Collect sub-entries ─────────────
+            IndexEntry sub_entries[256];
+            int sub_count = 0;
+
+            int j = i;
+
+            while (j < count) {
+
+                const char *p = entries[j].path;
+
+                // Apply prefix stripping again
+                if (prefix && strlen(prefix) > 0) {
+                    if (strncmp(p, prefix, strlen(prefix)) != 0) {
+                        j++;
+                        continue;
+                    }
+                    p += strlen(prefix);
+                }
+
+                // Check if entry belongs to this directory
+                if (strncmp(p, dirname, len) == 0 && p[len] == '/') {
+                    sub_entries[sub_count++] = entries[j];
+                }
+
+                j++;
+            }
+}
+
 int tree_from_index(ObjectID *id_out) {
 
     // ───────────── Step 1: Declare Index structure ─────────────
