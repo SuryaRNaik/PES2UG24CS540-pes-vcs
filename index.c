@@ -214,6 +214,20 @@ int index_save(const Index *idx) {
         1,
         fp
     );
+    fwrite(
+        idx->entries,
+        sizeof(IndexEntry),
+        idx->count,
+        fp
+    );
+
+
+    // ───────────── Step 3: Close file ─────────────
+    fclose(fp);
+
+
+    // ───────────── Save successful ─────────────
+    return 0;
 
 }
 
