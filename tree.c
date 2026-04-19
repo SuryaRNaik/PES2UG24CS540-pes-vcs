@@ -28,55 +28,127 @@
 
 // Determine the object mode for a filesystem path.
 uint32_t get_file_mode(const char *path) {
-    struct stat st;
-    if (lstat(path, &st) != 0) return 0;
 
-    if (S_ISDIR(st.st_mode))  return MODE_DIR;
-    if (st.st_mode & S_IXUSR) return MODE_EXEC;
+    struct stat st;
+
+    // Retrieve file metadata
+    if (lstat(path, &st) != 0) {
+        return 0;
+    }
+
+    // Check if path is a directory
+    if (S_ISDIR(st.st_mode)) {
+        return MODE_DIR;
+    }
+
+    // Check if executable bit is set
+    if (st.st_mode & S_IXUSR) {
+        return MODE_EXEC;
+    }
+
+    // Default: regular file
     return MODE_FILE;
 }
 
-// Parse binary tree data into a Tree struct safely.
-// Returns 0 on success, -1 on parse error.
+// ───────────── Parse Tree Object ─────────────
+// Converts raw binary tree data into a Tree struct
 int tree_parse(const void *data, size_t len, Tree *tree_out) {
+
+    // Initialize tree entry count
     tree_out->count = 0;
+
+    // Set pointer to start of data
     const uint8_t *ptr = (const uint8_t *)data;
+
+    // Define end pointer for bounds checking
     const uint8_t *end = ptr + len;
 
+
+    // ───────────── Iterate through entries ─────────────
     while (ptr < end && tree_out->count < MAX_TREE_ENTRIES) {
+
+        // Get reference to next tree entry
         TreeEntry *entry = &tree_out->entries[tree_out->count];
 
-        // 1. Safely find the space character for the mode
-        const uint8_t *space = memchr(ptr, ' ', end - ptr);
-        if (!space) return -1; // Malformed data
 
-        // Parse mode into an isolated buffer
+        // ───────────── Step 1: Parse mode ─────────────
+
+        // Locate space separating mode and name
+        const uint8_t *space = memchr(ptr, ' ', end - ptr);
+
+        if (!space) {
+            return -1;   // Malformed entry
+        }
+
+        // Extract mode string
         char mode_str[16] = {0};
-        size_t mode_len = space - ptr;
-        if (mode_len >= sizeof(mode_str)) return -1;
+
+        size_t mode_len = (size_t)(space - ptr);
+
+        // Ensure mode string fits buffer
+        if (mode_len >= sizeof(mode_str)) {
+            return -1;
+        }
+
+        // Copy mode string
         memcpy(mode_str, ptr, mode_len);
+
+        // Convert string → integer (octal)
         entry->mode = strtol(mode_str, NULL, 8);
 
-        ptr = space + 1; // Skip space
 
-        // 2. Safely find the null terminator for the name
+        // Move pointer past space
+        ptr = space + 1;
+
+
+        // ───────────── Step 2: Parse name ─────────────
+
+        // Find null terminator after name
         const uint8_t *null_byte = memchr(ptr, '\0', end - ptr);
-        if (!null_byte) return -1; // Malformed data
 
-        size_t name_len = null_byte - ptr;
-        if (name_len >= sizeof(entry->name)) return -1;
+        if (!null_byte) {
+            return -1;   // Malformed entry
+        }
+
+        // Calculate name length
+        size_t name_len = (size_t)(null_byte - ptr);
+
+        // Ensure name fits buffer
+        if (name_len >= sizeof(entry->name)) {
+            return -1;
+        }
+
+        // Copy name
         memcpy(entry->name, ptr, name_len);
-        entry->name[name_len] = '\0'; // Ensure null-terminated
 
-        ptr = null_byte + 1; // Skip null byte
+        // Add null terminator
+        entry->name[name_len] = '\0';
 
-        // 3. Read the 32-byte binary hash
-        if (ptr + HASH_SIZE > end) return -1; 
+
+        // Move pointer past null byte
+        ptr = null_byte + 1;
+
+
+        // ───────────── Step 3: Parse hash ─────────────
+
+        // Ensure enough bytes remain for hash
+        if (ptr + HASH_SIZE > end) {
+            return -1;
+        }
+
+        // Copy hash (raw 32 bytes)
         memcpy(entry->hash.hash, ptr, HASH_SIZE);
+
+        // Advance pointer
         ptr += HASH_SIZE;
 
-        tree_out->count++;
+
+        // ───────────── Step 4: Increment entry count ─────────────
+        tree_out->count++;//incrementing
     }
+
+
+    // ───────────── Parsing complete ─────────────
     return 0;
 }
 
