@@ -150,6 +150,32 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         free(buffer);
         return -1;
     }
+        // 8. Write
+    if (write(fd, buffer, total_len) != (ssize_t)total_len) {
+        close(fd);
+        free(buffer);
+        return -1;
+    }
+
+    // 9. fsync file
+    fsync(fd);
+    close(fd);
+
+    // 10. rename → atomic
+    if (rename(temp_path, path) != 0) {
+        free(buffer);
+        return -1;
+    }
+
+    // 11. fsync directory
+    int dir_fd = open(dir, O_RDONLY);
+    if (dir_fd >= 0) {
+        fsync(dir_fd);
+        close(dir_fd);
+    }
+
+    free(buffer);
+    return 0;
 }
 
 // Read an object from the store.
