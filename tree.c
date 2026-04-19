@@ -130,8 +130,37 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 //
 // Returns 0 on success, -1 on error.
 int tree_from_index(ObjectID *id_out) {
-    // TODO: Implement recursive tree building
-    // (See Lab Appendix for logical steps)
-    (void)id_out;
-    return -1;
+
+    // ───────────── Step 1: Declare Index structure ─────────────
+    // This will hold all staged entries (files added via `pes add`)
+    Index idx;
+
+
+    // ───────────── Step 2: Load index from disk ─────────────
+    // Reads .pes/index into memory
+    int load_status = index_load(&idx);
+
+    // If loading fails, return error
+    if (load_status != 0) {
+        return -1;
+    }
+
+
+    // ───────────── Step 3: Build tree recursively ─────────────
+    // Pass:
+    //   - all index entries
+    //   - total number of entries
+    //   - empty prefix (root level)
+    //   - output ObjectID for resulting tree
+    int result = build_tree(
+        idx.entries,
+        idx.count,
+        "",
+        id_out
+    );
+
+
+    // ───────────── Step 4: Return result ─────────────
+    // Success (0) or failure (-1)
+    return result;
 }
