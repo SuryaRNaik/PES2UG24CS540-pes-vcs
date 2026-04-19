@@ -306,4 +306,28 @@ int index_add(Index *index, const char *path) {
             return index_save(idx);   // 🔥 critical
         }
     }
+    if (idx->count >= MAX_INDEX_ENTRIES) {
+        return -1;   // Prevent overflow
+    }
+
+
+    // Store file path
+    strcpy(idx->entries[idx->count].path, path);
+
+    // Store hash (blob reference)
+    idx->entries[idx->count].hash = id;
+
+    // Store metadata
+    idx->entries[idx->count].size = st.st_size;
+    idx->entries[idx->count].mtime_sec = st.st_mtime;
+    idx->entries[idx->count].mode = st.st_mode;
+
+
+    // Increment entry count
+    idx->count++;
+
+
+    // ───────────── Step 9: Save index to disk ─────────────
+    // This ensures persistence since pes.c does NOT call index_save()
+    return index_save(idx);
 }
