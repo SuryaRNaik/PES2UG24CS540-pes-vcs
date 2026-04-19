@@ -208,4 +208,26 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
     // 3. Set the project snapshot (the tree we just created)
     commit.tree = tree_id;
 
+    // 4. Determine if there is a parent commit (check HEAD)
+    ObjectID parent_id;
+    if (head_read(&parent_id) == 0) {
+        // Success means this is not the first commit
+        commit.parent = parent_id;
+        commit.has_parent = 1;
+    } else {
+        // Failure means it's the root commit
+        commit.has_parent = 0;
+    }
+
+    // 5. Set metadata (Author, Timestamp, Message)
+    // Using static string "Adarsh" to guarantee stability
+    snprintf(commit.author, sizeof(commit.author), "Adarsh");
+    commit.timestamp = (uint64_t)time(NULL);
+    
+    if (message) {
+        snprintf(commit.message, sizeof(commit.message), "%s", message);
+    } else {
+        snprintf(commit.message, sizeof(commit.message), "no commit message");
+    }
+
 }
